@@ -4,9 +4,8 @@ import pandas as pd
 
 def ema(s,span): return s.ewm(span=span,adjust=False).mean()
 def rsi(s,p=14):
-    d=s.diff(); up=d.clip(lower=0); dn=(-d).clip(lower=0)
-    au=up.ewm(alpha=1/p,adjust=False).mean()
-    ad=dn.ewm(alpha=1/p,adjust=False).mean()
+    d=s.diff();up=d.clip(lower=0);dn=(-d).clip(lower=0)
+    au=up.ewm(alpha=1/p,adjust=False).mean();ad=dn.ewm(alpha=1/p,adjust=False).mean()
     rs=au/ad.replace(0,np.nan)
     return (100-100/(1+rs)).fillna(50)
 def atr(df,p=14):
@@ -19,17 +18,16 @@ def trend_strength(df,p=14):
     return (100*move/base.replace(0,np.nan)).clip(0,100).fillna(0)
 def add_indicators(df):
     x=df.copy()
-    x["ema_fast"]=ema(x.close,20); x["ema_slow"]=ema(x.close,50)
-    x["rsi"]=rsi(x.close,14); x["atr"]=atr(x,14)
+    x["ema_fast"]=ema(x.close,20);x["ema_slow"]=ema(x.close,50)
+    x["rsi"]=rsi(x.close);x["atr"]=atr(x)
     x["macd"]=ema(x.close,12)-ema(x.close,26)
-    x["macd_signal"]=ema(x.macd,9)
-    x["macd_hist"]=x.macd-x.macd_signal
-    x["trend_strength"]=trend_strength(x,14)
+    x["macd_signal"]=ema(x.macd,9);x["macd_hist"]=x.macd-x.macd_signal
+    x["trend_strength"]=trend_strength(x)
     x["atr_pct"]=100*x.atr/x.close.replace(0,np.nan)
     return x
 def make_signal(df):
     if len(df)<60:return {"signal":"WAIT","score":0,"reasons":["Data belum cukup"]}
-    a,b=df.iloc[-1],df.iloc[-2]; lp=sp=0; rs=[]
+    a,b=df.iloc[-1],df.iloc[-2];lp=sp=0;rs=[]
     if a.ema_fast>a.ema_slow:lp+=1;rs.append("EMA20 di atas EMA50")
     else:sp+=1;rs.append("EMA20 di bawah EMA50")
     if a.close>a.ema_fast:lp+=1;rs.append("Harga di atas EMA20")
@@ -46,24 +44,21 @@ def make_signal(df):
     if sp>=4 and sp>=lp+2:return {"signal":"SELL","score":sp,"reasons":rs}
     return {"signal":"WAIT","score":max(lp,sp),"reasons":rs}
 def make_plan(df,sig,atr_mult=1.5,rr=2.0):
-    a=df.iloc[-1]; entry=float(a.close); av=float(a.atr)
-    if sig["signal"]=="BUY": sl=entry-atr_mult*av; tp=entry+rr*(entry-sl)
-    elif sig["signal"]=="SELL": sl=entry+atr_mult*av; tp=entry-rr*(sl-entry)
-    else: sl=np.nan; tp=np.nan
+    a=df.iloc[-1];entry=float(a.close);av=float(a.atr)
+    if sig["signal"]=="BUY":sl=entry-atr_mult*av;tp=entry+rr*(entry-sl)
+    elif sig["signal"]=="SELL":sl=entry+atr_mult*av;tp=entry-rr*(sl-entry)
+    else:sl=np.nan;tp=np.nan
     return {"entry":entry,"sl":sl,"tp":tp}
 def market_regime(df):
-    a=df.iloc[-1]
-    t=float(a.trend_strength); v=float(a.atr_pct) if np.isfinite(a.atr_pct) else 0
-    if t>=35: label="Trending"; tradeable=True
-    elif t>=20: label="Mixed"; tradeable=True
-    else: label="Sideways"; tradeable=False
-    if v>3: label+=" / High vol"
-    elif v<0.1: label+=" / Low vol"
+    a=df.iloc[-1];t=float(a.trend_strength);v=float(a.atr_pct) if np.isfinite(a.atr_pct) else 0
+    if t>=35:label="Trending";tradeable=True
+    elif t>=20:label="Mixed";tradeable=True
+    else:label="Sideways";tradeable=False
+    if v>3:label+=" / High vol"
+    elif v<0.1:label+=" / Low vol"
     return {"label":label,"tradeable":tradeable}
-def signal_quality(df,sig,synced,sync_age):
-    a=df.iloc[-1]; score=0; rs=[]
-    if synced and sync_age<=180:score+=25;rs.append("BID/ASK Finex baru (+25)")
-    else:rs.append("BID/ASK Finex belum baru (+0)")
+def signal_quality(df,sig,synced=True,sync_age=0):
+    a=df.iloc[-1];score=25 if synced else 0;rs=["Live market data aktif (+25)" if synced else "Live market data tidak aktif (+0)"]
     pts=min(sig["score"],5)*10;score+=pts;rs.append(f"Teknikal {sig['score']}/5 (+{pts})")
     ts=float(a.trend_strength)
     if ts>=35:score+=15;rs.append("Trend strength kuat (+15)")
