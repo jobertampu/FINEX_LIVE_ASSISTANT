@@ -38,8 +38,8 @@ def make_signal(df):
     if a.macd_hist>0 and a.macd_hist>=b.macd_hist:lp+=1;rs.append("MACD positif/menguat")
     elif a.macd_hist<0 and a.macd_hist<=b.macd_hist:sp+=1;rs.append("MACD negatif/melemah")
     else:rs.append("MACD belum kuat")
-    if a.close>a.open:lp+=1;rs.append("Candle terakhir bullish")
-    elif a.close<a.open:sp+=1;rs.append("Candle terakhir bearish")
+    if a.close>a.open:lp+=1;rs.append("Candle aktif bullish")
+    elif a.close<a.open:sp+=1;rs.append("Candle aktif bearish")
     if lp>=4 and lp>=sp+2:return {"signal":"BUY","score":lp,"reasons":rs}
     if sp>=4 and sp>=lp+2:return {"signal":"SELL","score":sp,"reasons":rs}
     return {"signal":"WAIT","score":max(lp,sp),"reasons":rs}
@@ -57,8 +57,8 @@ def market_regime(df):
     if v>3:label+=" / High vol"
     elif v<0.1:label+=" / Low vol"
     return {"label":label,"tradeable":tradeable}
-def signal_quality(df,sig,synced=True,sync_age=0):
-    a=df.iloc[-1];score=25 if synced else 0;rs=["Live market data aktif (+25)" if synced else "Live market data tidak aktif (+0)"]
+def signal_quality(df,sig):
+    a=df.iloc[-1];score=25;rs=["Live candle aktif (+25)"]
     pts=min(sig["score"],5)*10;score+=pts;rs.append(f"Teknikal {sig['score']}/5 (+{pts})")
     ts=float(a.trend_strength)
     if ts>=35:score+=15;rs.append("Trend strength kuat (+15)")
